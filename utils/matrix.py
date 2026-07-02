@@ -78,7 +78,7 @@ def get_spot_positions_on_image():
         if not raw_loc or len(raw_loc) < 6:
             continue
             
-        mag_class = spot.get('mag_class', 'Beta')
+        mag_class = spot.get('mag_class') if spot.get('mag_class') else 'Beta'
         region_num = spot.get('region')
         area = spot.get('area', 0)
         
