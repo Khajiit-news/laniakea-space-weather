@@ -68,9 +68,17 @@ def run_pipeline():
     if bz < -8 or pressure > 7: shift_south = "Заметный (Дыхание космоса в Екатеринбурге)"
     if bz < -12 or pressure > 12: shift_south = "Сильный (Видно даже в Москве)"
         
-    # Пятна и регионы
+    # 5. Сбор данных об активных регионах и пятнах
     all_spots = get_spot_positions_on_image()
-    delta_spots = [spot for spot in all_spots if spot.get("mag_class") and "Delta" in spot["mag_class"]]
+    
+    # Абсолютно безопасный поиск Delta-структур
+    delta_spots = []
+    if all_spots:
+        for spot in all_spots:
+            # Защита: проверяем, что spot — это словарь и у него есть текстовый класс магнита
+            if isinstance(spot, dict) and spot.get("mag_class"):
+                if "Delta" in str(spot["mag_class"]):
+                    delta_spots.append(spot)
     
     # 2. Проверяем, есть ли критическая угроза (Alert)
     is_event_trigger = False
