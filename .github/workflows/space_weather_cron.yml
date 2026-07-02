@@ -1,0 +1,29 @@
+name: Laniakea Space Weather Monitor
+
+on:
+  schedule:
+    # Запуск каждый час (минута 0 каждого часа)
+    - cron: '0 * * * *'
+  # Позволяет запускать скрипт вручную через вкладку Actions
+  workflow_dispatch:
+
+jobs:
+  run-monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+
+    - name: Run Laniakea Engine
+      run: python main.py
