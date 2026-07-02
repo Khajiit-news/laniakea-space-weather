@@ -16,7 +16,9 @@ def ask_gemini(prompt_text):
         print("Ключ Gemini не найден, отдаем сырой текст")
         return prompt_text
         
-url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key={GEMINI_API_KEY}"    headers = {'Content-Type': 'application/json'}
+    # Используем флагман третьего поколения — Gemini 3.0 Flash
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key={GEMINI_API_KEY}"
+    headers = {'Content-Type': 'application/json'}
     payload = {
         "contents": [{"parts": [{"text": prompt_text}]}]
     }
@@ -67,14 +69,12 @@ def run_pipeline():
     if bz < -8 or pressure > 7: shift_south = "Заметный (Дыхание космоса в Екатеринбурге)"
     if bz < -12 or pressure > 12: shift_south = "Сильный (Видно даже в Москве)"
         
-    # 5. Сбор данных об активных регионах и пятнах
+    # Безопасный сбор данных об активных регионах и пятнах
     all_spots = get_spot_positions_on_image()
-    
-    # Абсолютно безопасный поиск Delta-структур
     delta_spots = []
+    
     if all_spots:
         for spot in all_spots:
-            # Защита: проверяем, что spot — это словарь и у него есть текстовый класс магнита
             if isinstance(spot, dict) and spot.get("mag_class"):
                 if "Delta" in str(spot["mag_class"]):
                     delta_spots.append(spot)
@@ -91,13 +91,12 @@ def run_pipeline():
         
     if len(delta_spots) > 0:
         is_event_trigger = True
-        primary_threat = max(delta_spots, key=lambda s: s["area"])
-        event_reason = f"ЭКСТРЕМАЛЬНАЯ ВСПЫШЕЧНАЯ ОПАСНОСТЬ (Регион {primary_threat['region']} [{primary_threat['mag_class']}])"
+        primary_threat = max(delta_spots, key=lambda s: s.get("area", 0) if s.get("area") else 0)
+        event_reason = f"ЭКСТРЕМАЛЬНАЯ ВСПЫШЕЧНАЯ ОПАСНОСТЬ (Регион {primary_threat.get('region')} [{primary_threat.get('mag_class')}])"
         override_spectrum = "0094"
 
     # 3. Определяем время: сейчас час планового обзора или нет?
     current_hour_utc = datetime.datetime.utcnow().hour
-    # Будем делать плановый утренний обзор, например, в 06:00 по UTC
     is_scheduled_time = (current_hour_utc == 6)
     
     # ГЛАВНЫЙ ФИЛЬТР: Если это не утро, и при этом на Солнце всё спокойно — тихо выходим
@@ -126,8 +125,9 @@ def run_pipeline():
     
     # 5. Собираем ТЕКСТ-ИНСТРУКЦИЮ для Gemini
     spots_info = ""
-    for s in all_spots:
-        spots_info += f"- Регион {s['region']} ({s['mag_class']}), площадь {s['area']}. Находится в: {s['text_quadrant']}\n"
+    if all_spots:
+        for s in all_spots:
+            spots_info += f"- Регион {s.get('region')} ({s.get('mag_class')}), площадь {s.get('area', 0)}. Находится в: {s.get('text_quadrant')}\n"
 
     prompt = f"""
 Ты — космический синоптик и мудрый Каджит, ведущий бортовой журнал системы Laniakea. Напиши пост для Телеграма.
@@ -136,7 +136,7 @@ def run_pipeline():
 
 {"ГОРЯЧИЙ ДЕЖУРНЫЙ СИГНАЛ ТРЕВОГИ!" if is_event_trigger else "ЕЖЕДНЕВНЫЙ УТРЕННИЙ ОБЗОР СОЛНЦА"}
 
-Текущие физические параметры:
+Текущие physical-параметры:
 - Индекс Kp: {kp_index}
 - Индекс Bz (магнитное поле): {bz} nT
 - Скорость ветра: {speed} км/с
@@ -154,7 +154,6 @@ def run_pipeline():
 Напиши атмосферный, но точный аналитический пост на основе этих цифр. Если это Тревога (Alert) — сфокусируйся на опасности и квадрантах пятен, которые её вызвали.
 """
 
-    # 6. Получаем текст от ИИ и отправляем в Telegram
     final_post_text = ask_gemini(prompt)
     send_to_telegram(final_post_text, sun_image)
 
