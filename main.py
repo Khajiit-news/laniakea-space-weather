@@ -16,8 +16,7 @@ def ask_gemini(prompt_text):
         print("Ключ Gemini не найден, отдаем сырой текст")
         return prompt_text
         
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
-    headers = {'Content-Type': 'application/json'}
+url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"    headers = {'Content-Type': 'application/json'}
     payload = {
         "contents": [{"parts": [{"text": prompt_text}]}]
     }
