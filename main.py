@@ -70,7 +70,7 @@ def run_pipeline():
         
     # Пятна и регионы
     all_spots = get_spot_positions_on_image()
-    delta_spots = [spot for spot in all_spots if "Delta" in spot["mag_class"]]
+    delta_spots = [spot for spot in all_spots if spot.get("mag_class") and "Delta" in spot["mag_class"]]
     
     # 2. Проверяем, есть ли критическая угроза (Alert)
     is_event_trigger = False
