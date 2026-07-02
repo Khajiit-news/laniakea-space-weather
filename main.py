@@ -1,74 +1,114 @@
+import os
 import datetime
+import requests
+import json
 from utils.noaa_client import NOAAClient
 from utils.matrix import get_sdo_matrix, get_spot_positions_on_image
 
+# Загружаем скрытые ключи из настроек GitHub
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+def ask_gemini(prompt_text):
+    """Отправляет структурированные цифры в Gemini и просит написать красивый пост"""
+    if not GEMINI_API_KEY:
+        print("Ключ Gemini не найден, отдаем сырой текст")
+        return prompt_text
+        
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
+    headers = {'Content-Type': 'application/json'}
+    payload = {
+        "contents": [{"parts": [{"text": prompt_text}]}]
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        result = response.json()
+        return result['candidates'][0]['content']['parts'][0]['text']
+    except Exception as e:
+        print(f"Ошибка Gemini: {e}")
+        return "Ошибка генерации текста через ИИ."
+
+def send_to_telegram(text, image_url):
+    """Отправляет красивый пост с картинкой в ваш Телеграм-канал"""
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("Ключи Telegram не настроены.")
+        return
+        
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "photo": image_url,
+        "caption": text,
+        "parse_mode": "Markdown"
+    }
+    
+    try:
+        requests.post(url, json=payload, timeout=10)
+        print("Пост успешно отправлен в Telegram!")
+    except Exception as e:
+        print(f"Ошибка отправки в TG: {e}")
+
 def run_pipeline():
-    # 1. Инициализируем клиент NOAA
     noaa = NOAAClient()
     
-    # 2. Собираем физические параметры ветра и магнитного поля
+    # 1. Собираем физику
     space_weather = noaa.get_solar_wind_and_mag()
     kp_index = noaa.get_kp_index()
     
-    # Дефолтные значения на случай сбоя сети
     speed = space_weather["speed"] if space_weather else 0
     density = space_weather["density"] if space_weather else 0
     bz = space_weather["bz"] if space_weather else 0
-    
-    # 3. Расчет динамического давления плазмы
     pressure = (1.672 * 10**-6) * density * (speed ** 2)
     
-    # 4. Расчет сдвига овала полярных сияний
+    # Сдвиг овала
     shift_south = "Минимальный"
-    if bz < -5 or pressure > 4: 
-        shift_south = "Средний (Доходит до СПб/Таллина)"
-    if bz < -8 or pressure > 7: 
-        shift_south = "Заметный (Дыхание космоса в Екатеринбурге)"
-    if bz < -12 or pressure > 12: 
-        shift_south = "Сильный (Видно даже в Москве)"
+    if bz < -5 or pressure > 4: shift_south = "Средний (Доходит до СПб/Таллина)"
+    if bz < -8 or pressure > 7: shift_south = "Заметный (Дыхание космоса в Екатеринбурге)"
+    if bz < -12 or pressure > 12: shift_south = "Сильный (Видно даже в Москве)"
         
-    # 5. Сбор данных об активных регионах и пятнах
+    # Пятна и регионы
     all_spots = get_spot_positions_on_image()
-    
-    # Ищем Delta-структуры, которые могут выдать мощную вспышку
     delta_spots = [spot for spot in all_spots if "Delta" in spot["mag_class"]]
     
-    # =========================================================================
-    # АВТОМАТИЧЕСКИЙ ТРИГГЕР СМЕНЫ РЕЖИМА (ALERT OVERRIDE)
-    # =========================================================================
+    # 2. Проверяем, есть ли критическая угроза (Alert)
     is_event_trigger = False
     event_reason = ""
     override_spectrum = None
     
-    # Триггер 1: Физическая буря прямо сейчас
     if speed > 600 or bz < -7:
         is_event_trigger = True
         event_reason = "ГЕОМАГНИТНЫЙ ШТОРМ / ВЫСОКОСКОРОСТНОЙ ПОТОК"
-        override_spectrum = "0193"  # Корональные дыры и ветер (Юпитер)
+        override_spectrum = "0193"
         
-    # Триггер 2: Обнаружены крупные взрывоопасные Delta-группы
     if len(delta_spots) > 0:
         is_event_trigger = True
-        # Берем самую большую Delta-группу для фокуса
         primary_threat = max(delta_spots, key=lambda s: s["area"])
         event_reason = f"ЭКСТРЕМАЛЬНАЯ ВСПЫШЕЧНАЯ ОПАСНОСТЬ (Регион {primary_threat['region']} [{primary_threat['mag_class']}])"
-        override_spectrum = "0094"  # Меркурий (94 Å) — экстремальный нагрев вспышек X-класса
-        
-    # =========================================================================
-    # ВЫБОР СПЕКТРА: БАЗОВЫЙ ПЛАНЕТАРНЫЙ ИЛИ АВАРИЙНЫЙ
-    # =========================================================================
+        override_spectrum = "0094"
+
+    # 3. Определяем время: сейчас час планового обзора или нет?
+    current_hour_utc = datetime.datetime.utcnow().hour
+    # Будем делать плановый утренний обзор, например, в 06:00 по UTC
+    is_scheduled_time = (current_hour_utc == 6)
+    
+    # ГЛАВНЫЙ ФИЛЬТР: Если это не утро, и при этом на Солнце всё спокойно — тихо выходим
+    if not is_scheduled_time and not is_event_trigger:
+        print("На Солнце всё спокойно. Плановое время не подошло. Монитор засыпает.")
+        return
+
+    # 4. Выбираем спектр и планетарные метаданные
     current_weekday = datetime.datetime.utcnow().weekday()
     sdo_matrix = get_sdo_matrix()
     
     if is_event_trigger and override_spectrum:
         wave_num = override_spectrum
-        # Ищем метаданные для переопределенного спектра в матрице
         meta_source = next((item for item in sdo_matrix.values() if item["spectrum_id"] == wave_num), sdo_matrix[current_weekday])
-        planet_gov = f"{meta_source['planet']} (ALERT OVERRIDE: {event_reason})"
-        focus_text = f"СРОЧНЫЙ СНИМОК: {meta_source['focus']}"
+        planet_gov = f"{meta_source['planet']} (КРИТИЧЕСКИЙ ПЕРЕХВАТ)"
+        focus_text = f"🚨 ЭКСТРЕННЫЙ СНИМОК: {meta_source['focus']}"
         color_text = meta_source["color"]
     else:
-        # Штатный режим по дню недели
         today_meta = sdo_matrix[current_weekday]
         wave_num = today_meta["spectrum_id"]
         planet_gov = today_meta["planet"]
@@ -76,55 +116,40 @@ def run_pipeline():
         color_text = today_meta["color"]
         
     sun_image = f"https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_{wave_num}.jpg"
-    image_type = f"live_sun_{wave_num}" if not is_event_trigger else f"alert_sun_{wave_num}"
     
-    # Формируем финальный пакет данных
-    raw_time = datetime.datetime.utcnow()
-    formatted_time = raw_time.strftime("%d.%m.%Y %H:%M UTC")
-    
-    payload = {
-        "status": "success",
-        "time": formatted_time,
-        "source": "Центр прогнозирования космической погоды (NOAA) & Laniakea Engine",
-        "is_alert": is_event_trigger,
-        "alert_reason": event_reason,
-        
-        "metrics": {
-            "kp_index": kp_index,
-            "bz_index": bz,
-            "wind_speed": speed,
-            "dynamic_pressure": round(pressure, 2),
-            "aurora_shift": shift_south
-        },
-        
-        "image_data": {
-            "url": sun_image,
-            "type": image_type,
-            "angstrom": wave_num
-        },
-        
-        "astrology_meta": {
-            "weekday_id": current_weekday,
-            "planet_governor": planet_gov,
-            "spectrum_color": color_text,
-            "physical_focus": focus_text
-        },
-        
-        # Передаем координаты ВСЕХ активных пятен, чтобы Gemini понимал, что и где на диске находится
-        "active_regions": all_spots,
-        
-        "critical_points": {
-            "Murmansk_68N": "В зоне каспа (прямое втекание)",
-            "Tallinn_SPb_59N": "На границе щита",
-            "Ekaterinburg_56N": "Ожидание искры",
-            "Sochi_43N": "Под защитой ядра поля"
-        }
-    }
-    
-    return payload
+    # 5. Собираем ТЕКСТ-ИНСТРУКЦИЮ для Gemini
+    spots_info = ""
+    for s in all_spots:
+        spots_info += f"- Регион {s['region']} ({s['mag_class']}), площадь {s['area']}. Находится в: {s['text_quadrant']}\n"
+
+    prompt = f"""
+Ты — космический синоптик и мудрый Каджит, ведущий бортовой журнал системы Laniakea. Напиши пост для Телеграма.
+Используй свой уникальный стиль (обращение от третьего лица "этот Каджит", "мудрый Каджит").
+Сделай текст scannable: используй жирный шрифт для акцентов, разделяй мысли на абзацы и списки.
+
+{"ГОРЯЧИЙ ДЕЖУРНЫЙ СИГНАЛ ТРЕВОГИ!" if is_event_trigger else "ЕЖЕДНЕВНЫЙ УТРЕННИЙ ОБЗОР СОЛНЦА"}
+
+Текущие физические параметры:
+- Индекс Kp: {kp_index}
+- Индекс Bz (магнитное поле): {bz} nT
+- Скорость ветра: {speed} км/с
+- Динамическое давление плазмы: {round(pressure, 2)} nPa
+- Сдвиг аврорального овала: {shift_south}
+
+Астрологический контекст дня:
+- День под управлением планеты: {planet_gov}
+- Смотрим на Солнце в спектре SDO: {wave_num} Ангстрем (в {color_text} цвете)
+- Фокус внимания этого дня: {focus_text}
+
+Активные регионы и пятна на диске Солнца:
+{spots_info if spots_info else "Чистый диск, явных пятен нет."}
+
+Напиши атмосферный, но точный аналитический пост на основе этих цифр. Если это Тревога (Alert) — сфокусируйся на опасности и квадрантах пятен, которые её вызвали.
+"""
+
+    # 6. Получаем текст от ИИ и отправляем в Telegram
+    final_post_text = ask_gemini(prompt)
+    send_to_telegram(final_post_text, sun_image)
 
 if __name__ == "__main__":
-    # Локальный тест при запуске файла напрямую
-    import json
-    result = run_pipeline()
-    print(json.dumps(result, indent=4, ensure_ascii=False))
+    run_pipeline()
