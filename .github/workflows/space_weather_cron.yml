@@ -2,10 +2,9 @@ name: Laniakea Space Weather Monitor
 
 on:
   schedule:
-    # Запуск каждый час (минута 0 каждого часа)
+    # Запуск в 00 минут каждого часа
     - cron: '0 * * * *'
-  # Позволяет запускать скрипт вручную через вкладку Actions
-  workflow_dispatch:
+  workflow_dispatch: # Позволяет запустить вручную кнопкой
 
 jobs:
   run-monitor:
@@ -26,4 +25,9 @@ jobs:
         pip install requests
 
     - name: Run Laniakea Engine
+      env:
+        # Передаем скрытые ключи в код в момент запуска
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: python main.py
