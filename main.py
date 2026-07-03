@@ -125,11 +125,11 @@ def run_pipeline():
         focus_text = today_meta["focus"]
         color_text = today_meta["color"]
         
-    # --- ИСПРАВЛЕННАЯ ЧАСТЬ ---
-    # Используем шаблон latest_1024_{wave_num}.jpg для получения только свежих данных
-    sun_image = f"https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_{wave_num}.jpg"
-    print(f"DEBUG: Запрошен снимок SDO: {sun_image}")
-    # --- КОНЕЦ ИСПРАВЛЕННОЙ ЧАСТИ ---
+    # 4. Формируем URL с "анти-кэш" меткой времени
+    # Добавление ?time=... заставляет сервер отдать актуальный файл, а не старый из кэша
+    ts = int(datetime.datetime.utcnow().timestamp())
+    sun_image = f"https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_{wave_num}.jpg?t={ts}"
+    image_type = "live_sun_" + wave_num
     
     # 5. Собираем ТЕКСТ-ИНСТРУКЦИЮ для Gemini
     spots_info = ""
@@ -141,6 +141,18 @@ def run_pipeline():
 Ты — космический синоптик Каджит, ведущий журнал системы Laniakea. Напиши пост для ТГ.
 Стиль: обращение от третьего лица "этот Каджит", "мудрый Каджит".
 Формат: жирный шрифт для ключевых фраз, короткие абзацы.
+ФОРМАТ ОТЧЕТА:
+Заголовок: Приветствие от Каджита. Укажи время замера ({{steps.code.$return_value.time}}) и упомяни мудрецов из {{steps.code.$return_value.source}}. Сегодняшний день проходит под влиянием <b>{{steps.code.$return_value.astrology_meta.planet_governor}}</b>.
+
+Данные и Физика: 
+Вот наш отчет в цифрах: магнитное поле Bz составляет <b>{{steps.code.$return_value.bz}} нТл</b>, скорость ветра достигает <b>{{steps.code.$return_value.speed}} км/с</b>, а давление — <b>{{steps.code.$return_value.pressure}} нПа</b>. 
+
+<blockquote>
+Если Bz положительный: "Щит закрыт, замок на двери".
+Если Bz отрицательный: "В щите дыра, сквозняк через касп".
+Если Давление больше 4 нПа: "Солнце сильно давит на наш магнитный домик".
+</blockquote>
+
 ФОРМАТИРОВАНИЕ: Используй ТОЛЬКО HTML-теги для разметки. 
 - Жирный текст делай через <b>главная фраза</b>
 - Цитаты или выжимки ученых оформляй через <i>текст цитаты</i>
