@@ -39,3 +39,13 @@ class NOAAClient:
         except Exception as e:
             print(f"Ошибка получения Kp-индекса: {e}")
             return None # Возвращаем None, чтобы main.py мог корректно обработать отсутствие данных
+
+def get_swx_report(self):
+        """Скачивает свежий текстовый обзор NOAA"""
+        url = "https://services.swpc.noaa.gov/text/discussion.txt"
+        try:
+            response = requests.get(url, headers=self.headers, timeout=10)
+            return response.text
+        except Exception as e:
+            print(f"Ошибка чтения discussion.txt: {e}")
+            return "Обзор временно недоступен."
