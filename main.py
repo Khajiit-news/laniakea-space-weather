@@ -16,7 +16,7 @@ client = genai.Client()
 
 def ask_gemini(prompt_text):
     """Генерация с прыжком между моделями и защитой от 503"""
-    models = ['gemini-3.5-flash', 'gemini-1.5-flash']
+    models = ['gemini-2.5-flash', 'gemini-1.5-flash']
     for model in models:
         try:
             print(f"Попытка через {model}...")
