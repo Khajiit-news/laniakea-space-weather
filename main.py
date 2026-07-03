@@ -1,25 +1,37 @@
 import os
-import datetime
+import time
 import requests
 from google import genai
 from utils.noaa_client import NOAAClient
 from utils.matrix import get_sdo_matrix, get_spot_positions_on_image
 
-# Инициализируем клиент (он автоматически берет GEMINI_API_KEY из окружения)
+# 1. Загружаем переменные (безопасно)
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+# Ключ для Gemini SDK подтягивается автоматически через GEMINI_API_KEY
+
 client = genai.Client()
 
 def ask_gemini(prompt_text):
-    """Генерация через современный SDK google-genai"""
-    try:
-        # Используем модель 1.5-flash — она быстрая, стабильная и везде доступная
-        response = client.models.generate_content(
-            model='gemini-3.5-flash',
-            contents=prompt_text,
-        )
-        return response.text
-    except Exception as e:
-        print(f"Критическая ошибка Gemini SDK: {e}")
-        return "Ошибка генерации текста через ИИ."
+    """Генерация с защитой от 503 ошибок"""
+    for attempt in range(3):  # 3 попытки при перегрузке
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.5-flash', # Берем из вашего списка
+                contents=prompt_text,
+            )
+            return response.text
+        except Exception as e:
+            if "503" in str(e):
+                print(f"Сервер занят, попытка {attempt + 1}...")
+                time.sleep(5)
+            else:
+                print(f"Критическая ошибка: {e}")
+                break
+    return "Системы Laniakea временно перегружены. Повторите попытку позже."
+
+# Далее идет ваш остальной код (send_to_telegram, run_pipeline и т.д.)
+# ...
 def send_to_telegram(text, image_url):
     """Отправляет красивый пост с картинкой в ваш Телеграм-канал"""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
