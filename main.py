@@ -73,6 +73,7 @@ def run_pipeline():
         
     # Безопасный сбор данных об активных регионах
     all_spots = get_spot_positions_on_image()
+    delta_spots = []
     
     if all_spots:
         for spot in all_spots:
