@@ -110,9 +110,9 @@ def run_pipeline():
         event_reason = f"ЭКСТРЕМАЛЬНАЯ ВСПЫШЕЧНАЯ ОПАСНОСТЬ (Регион {primary_threat.get('region')})"
         override_spectrum = "0094"
 
-    # 3. Определяем время: сейчас час планового обзора?
+    # 3. Определяем время: теперь плановый обзор выходит строго после обновления NOAA в 9 UTC (12:00 Таллин)
     current_hour_utc = datetime.datetime.utcnow().hour
-    is_scheduled_time = (current_hour_utc == 6 or current_hour_utc == 7 or current_hour_utc == 8) 
+    is_scheduled_time = (current_hour_utc == 9 or current_hour_utc == 10) 
     
     if not is_scheduled_time and not is_event_trigger:
         print("На Солнце всё спокойно. Плановое время не подошло. Монитор засыпает.")
