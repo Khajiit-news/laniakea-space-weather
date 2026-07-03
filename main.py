@@ -44,26 +44,25 @@ def run_pipeline():
 def run_pipeline():
     noaa = NOAAClient()
     
-    # 1. Собираем физику и научные обзоры
+# 1. Собираем физику и научные обзоры
     space_weather = noaa.get_solar_wind_and_mag()
     kp_index = noaa.get_kp_index()
     
-    # Достаем текстовый обзор ученых за прошедшие сутки (события, вспышки)
+    # ПРОВЕРКА: Если NOAA не ответила, не идем дальше
+    if space_weather is None or kp_index is None:
+        print("Данные NOAA недоступны. Прерываю работу.")
+        return
+
+    # Достаем текстовый обзор ученых
     swx_report = "Нет данных обзора."
-    try:
-        if hasattr(noaa, 'get_swx_report'):
-            swx_report = noaa.get_swx_report()
-        elif hasattr(noaa, 'get_latest_report'):
-            swx_report = noaa.get_latest_report()
-    except Exception as e:
-        print(f"Не удалось достать текстовый обзор: {e}")
+    # (оставь свою логику try/except здесь как есть)
     
-    speed = space_weather["speed"] if space_weather else 0
-    density = space_weather["density"] if space_weather else 0
-    bz = space_weather["bz"] if space_weather else 0
+    speed = space_weather["speed"]
+    density = space_weather["density"]
+    bz = space_weather["bz"]
     pressure = (1.672 * 10**-6) * density * (speed ** 2)
     
-    # Рубежи космической обороны для ИИ
+    # Рубежи космической обороны
     shift_south = "Штиль. Мончегорск — на передовой сияний, Таллинн/СПб — в зоне ожидания, Екатеринбург (Уральский рубеж) — под защитой, Сочи — глубокий тыл."
     if bz < -5 or pressure > 4: 
         shift_south = "Среднее смещение. Накрывает Мончегорск, дотягивается до Таллинна и СПб. На Уральском рубеже (Екатеринбург) сгущаются тени."
@@ -72,9 +71,8 @@ def run_pipeline():
     if bz < -12 or pressure > 12: 
         shift_south = "Экстремальный шторм века. Пробивает всё до Екатеринбурга, сияние катится к Москве, в Сочи с тревогой смотрят на небо."
         
-    # Безопасный сбор данных об активных регионах и пятнах
+    # Безопасный сбор данных об активных регионах
     all_spots = get_spot_positions_on_image()
-    delta_spots = []
     
     if all_spots:
         for spot in all_spots:
