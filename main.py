@@ -11,25 +11,24 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def ask_gemini(prompt_text):
-    print("--- ОТПРАВЛЯЕМ В GEMINI ---")
-    print(prompt_text[:500] + "...") # Печатаем кусок промпта в лог
-    
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key={GEMINI_API_KEY}"
-    headers = {'Content-Type': 'application/json'}
+    # Используем стабильный эндпоинт v1beta
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
     
-    response = requests.post(url, headers=headers, json=payload, timeout=15)
-    result = response.json()
-    
-    # ПЕЧАТАЕМ ВЕСЬ ОТВЕТ В ЛОГ, чтобы мы его увидели!
-    print("--- ОТВЕТ ОТ GEMINI ---")
-    print(result) 
-    
     try:
-        text = result['candidates'][0]['content']['parts'][0]['text']
-        return text
+        response = requests.post(url, json=payload, timeout=20)
+        result = response.json()
+        
+        # Безопасное извлечение текста по вашей логике
+        if 'candidates' in result and len(result['candidates']) > 0:
+            return result['candidates'][0]['content']['parts'][0]['text']
+        elif 'error' in result:
+            print(f"Ошибка API: {result['error']['message']}")
+            return "Космический штиль. Системы на проверке."
+        return "Ошибка формата ответа."
+        
     except Exception as e:
-        print(f"Критическая ошибка разбора ответа: {e}")
+        print(f"Критическая ошибка: {e}")
         return "Ошибка обработки ответа."
 
 def send_to_telegram(text, image_url):
