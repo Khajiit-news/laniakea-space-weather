@@ -6,27 +6,30 @@ class NOAAClient:
         self.headers = {"User-Agent": "Laniakea-Space-Weather-Bot/2.0"}
 
     def get_solar_wind_and_mag(self):
-        """Прямой сбор данных из статических JSON-файлов NOAA"""
-        # Используем ссылки из твоего README
+        """Сбор данных с приоритетом на SOLAR-1"""
         wind_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
         mag_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
         
         try:
-            # Загружаем данные напрямую
             wind_response = requests.get(wind_url, headers=self.headers, timeout=15).json()
             mag_response = requests.get(mag_url, headers=self.headers, timeout=15).json()
             
-            # Берем последние данные из массива
-            wind_data = wind_response[-1]
-            mag_data = mag_response[-1]
+            # Фильтруем данные, чтобы оставить только SOLAR-1
+            solar1_wind = [d for d in wind_response if d.get("source") == "SOLAR1"]
+            solar1_mag = [d for d in mag_response if d.get("source") == "SOLAR1"]
+            
+            # Берем последние из отфильтрованных данных
+            wind_data = solar1_wind[-1] if solar1_wind else {}
+            mag_data = solar1_mag[-1] if solar1_mag else {}
             
             return {
+                "source": "SOLAR-1", # Добавляем источник для отчета
                 "speed": float(wind_data.get("speed", 0)),
                 "density": float(wind_data.get("density", 0)),
                 "bz": float(mag_data.get("bz", 0))
             }
         except Exception as e:
-            print(f"Ошибка при прямом чтении JSON: {e}")
+            print(f"Ошибка при чтении данных SOLAR-1: {e}")
             return None
 
     def get_kp_index(self):
