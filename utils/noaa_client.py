@@ -33,15 +33,24 @@ class NOAAClient:
             return None
 
     def get_kp_index(self):
-        """Забирает текущий планетарный Kp-индекс с защитой"""
-        url = f"{self.base_url}/json/planetary_k_index_1m.json"
-        try:
-            # Добавили headers и увеличили таймаут для стабильности
-            kp_data = requests.get(url, headers=self.headers, timeout=10).json()[-1]
-            return float(kp_data.get("kp_index", 0))
-        except Exception as e:
-            print(f"Ошибка получения Kp-индекса: {e}")
-            return None # Возвращаем None, чтобы main.py мог корректно обработать отсутствие данных
+    """Забирает последний актуальный Kp-индекс (исключая нулевые выбросы)"""
+    url = f"{self.base_url}/json/planetary_k_index_1m.json"
+    try:
+        response = requests.get(url, headers=self.headers, timeout=10)
+        data = response.json()
+        
+        # Идем с конца списка к началу, чтобы найти первое не нулевое значение
+        for entry in reversed(data):
+            val = float(entry.get("estimated_kp", 0))
+            if val > 0:
+                return val
+        
+        # Если все нули, возвращаем последнее значение из списка как есть
+        return float(data[-1].get("estimated_kp", 0))
+        
+    except Exception as e:
+        print(f"Ошибка получения Kp-индекса: {e}")
+        return None
 
 def get_swx_report(self):
         """Скачивает свежий текстовый обзор NOAA"""
