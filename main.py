@@ -112,7 +112,7 @@ def run_pipeline():
 
     # 3. Определяем время: теперь плановый обзор выходит строго после обновления NOAA в 9 UTC (12:00 Таллин)
     current_hour_utc = datetime.datetime.utcnow().hour
-    is_scheduled_time = (current_hour_utc == 9 or current_hour_utc == 10) 
+    is_scheduled_time = True 
     
     if not is_scheduled_time and not is_event_trigger:
         print("На Солнце всё спокойно. Плановое время не подошло. Монитор засыпает.")
