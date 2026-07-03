@@ -6,29 +6,28 @@ class NOAAClient:
         self.headers = {"User-Agent": "Laniakea-Space-Weather-Bot/2.0"}
 
     def get_solar_wind_and_mag(self):
-        wind_url = f"{self.base_url}/json/rtsw/rtsw_wind_1m.json"
-        mag_url = f"{self.base_url}/json/rtsw/rtsw_mag_1m.json"
+        """Прямой сбор данных из статических JSON-файлов NOAA"""
+        # Используем ссылки из твоего README
+        wind_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
+        mag_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
         
         try:
-            # Добавляем таймаут и headers
-            wind_data = requests.get(wind_url, headers=self.headers, timeout=10).json()[-1]
-            mag_data = requests.get(mag_url, headers=self.headers, timeout=10).json()[-1]
+            # Загружаем данные напрямую
+            wind_response = requests.get(wind_url, headers=self.headers, timeout=15).json()
+            mag_response = requests.get(mag_url, headers=self.headers, timeout=15).json()
             
-            # Валидация: если данные пришли, но значения пустые/нечисловые, бросаем ошибку
-            speed = float(wind_data.get("speed", 0))
-            bz = float(mag_data.get("bz", 0))
+            # Берем последние данные из массива
+            wind_data = wind_response[-1]
+            mag_data = mag_response[-1]
             
-            if speed == 0 or bz == 0:
-                raise ValueError("Получены пустые или нулевые данные от NOAA")
-                
             return {
-                "speed": speed,
+                "speed": float(wind_data.get("speed", 0)),
                 "density": float(wind_data.get("density", 0)),
-                "bz": bz
+                "bz": float(mag_data.get("bz", 0))
             }
         except Exception as e:
-            print(f"Критическая ошибка NOAA: {e}")
-            return None # Теперь main.py поймет, что данных нет
+            print(f"Ошибка при прямом чтении JSON: {e}")
+            return None
 
     def get_kp_index(self):
         """Забирает текущий планетарный Kp-индекс с защитой"""
