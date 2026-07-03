@@ -1,36 +1,25 @@
 import os
 import datetime
 import requests
-import json
+from google import genai
 from utils.noaa_client import NOAAClient
 from utils.matrix import get_sdo_matrix, get_spot_positions_on_image
 
-# Загружаем скрытые ключи из настроек GitHub
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Инициализируем клиент (он автоматически берет GEMINI_API_KEY из окружения)
+client = genai.Client()
 
 def ask_gemini(prompt_text):
-    # Используем стабильный эндпоинт v1beta
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-    
+    """Генерация через современный SDK google-genai"""
     try:
-        response = requests.post(url, json=payload, timeout=20)
-        result = response.json()
-        
-        # Безопасное извлечение текста по вашей логике
-        if 'candidates' in result and len(result['candidates']) > 0:
-            return result['candidates'][0]['content']['parts'][0]['text']
-        elif 'error' in result:
-            print(f"Ошибка API: {result['error']['message']}")
-            return "Космический штиль. Системы на проверке."
-        return "Ошибка формата ответа."
-        
+        # Используем модель 1.5-flash — она быстрая, стабильная и везде доступная
+        response = client.models.generate_content(
+            model='gemini-3.5-flash',
+            contents=prompt_text,
+        )
+        return response.text
     except Exception as e:
-        print(f"Критическая ошибка: {e}")
-        return "Ошибка обработки ответа."
-
+        print(f"Критическая ошибка Gemini SDK: {e}")
+        return "Ошибка генерации текста через ИИ."
 def send_to_telegram(text, image_url):
     """Отправляет красивый пост с картинкой в ваш Телеграм-канал"""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
