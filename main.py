@@ -109,27 +109,27 @@ def run_pipeline():
     # ... (код выше: сбор данных NOAA, Kp-индекс, расчет давления и т.д.)
 
     # 4. Выбираем спектр и planetary-метаданные
-    # Вот сюда вставляем текущее время и день недели
     current_weekday = datetime.datetime.utcnow().weekday()
     sdo_matrix = get_sdo_matrix()
     
     if is_event_trigger and override_spectrum:
         wave_num = override_spectrum
-        # Используем .get() для безопасности, если ключ не найден
         meta_source = next((item for item in sdo_matrix.values() if item["spectrum_id"] == wave_num), sdo_matrix.get(current_weekday))
         planet_gov = f"{meta_source['planet']} (КРИТИЧЕСКИЙ ПЕРЕХВАТ)"
         focus_text = f"🚨 ЭКСТРЕННЫЙ СНИМОК: {meta_source['focus']}"
         color_text = meta_source["color"]
     else:
-        today_meta = sdo_matrix.get(current_weekday, sdo_matrix[0]) # Защита, если индекс вне диапазона
+        today_meta = sdo_matrix.get(current_weekday, sdo_matrix[0])
         wave_num = today_meta["spectrum_id"]
         planet_gov = today_meta["planet"]
         focus_text = today_meta["focus"]
         color_text = today_meta["color"]
         
+    # --- ИСПРАВЛЕННАЯ ЧАСТЬ ---
+    # Используем шаблон latest_1024_{wave_num}.jpg для получения только свежих данных
     sun_image = f"https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_{wave_num}.jpg"
-    
-    # ... (дальше идет ваш код с созданием prompt и отправкой)
+    print(f"DEBUG: Запрошен снимок SDO: {sun_image}")
+    # --- КОНЕЦ ИСПРАВЛЕННОЙ ЧАСТИ ---
     
     # 5. Собираем ТЕКСТ-ИНСТРУКЦИЮ для Gemini
     spots_info = ""
