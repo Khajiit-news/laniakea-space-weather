@@ -1,59 +1,45 @@
 import os
 import time
+import random
+import datetime
 import requests
 from google import genai
 from utils.noaa_client import NOAAClient
 from utils.matrix import get_sdo_matrix, get_spot_positions_on_image
 
-# 1. Загружаем переменные (безопасно)
+# Загрузка ключей
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-# Ключ для Gemini SDK подтягивается автоматически через GEMINI_API_KEY
+# GEMINI_API_KEY подхватывается автоматически SDK
 
 client = genai.Client()
 
 def ask_gemini(prompt_text):
-    """Генерация с защитой от 503 ошибок"""
-    for attempt in range(3):  # 3 попытки при перегрузке
+    """Генерация с прыжком между моделями и защитой от 503"""
+    models = ['gemini-3.5-flash', 'gemini-1.5-flash']
+    for model in models:
         try:
-            response = client.models.generate_content(
-                model='gemini-3.5-flash', # Берем из вашего списка
-                contents=prompt_text,
-            )
+            print(f"Попытка через {model}...")
+            response = client.models.generate_content(model=model, contents=prompt_text)
             return response.text
         except Exception as e:
-            if "503" in str(e):
-                print(f"Сервер занят, попытка {attempt + 1}...")
-                time.sleep(5)
-            else:
-                print(f"Критическая ошибка: {e}")
-                break
-    return "Системы Laniakea временно перегружены. Повторите попытку позже."
+            print(f"Ошибка {model}: {e}")
+            time.sleep(2)
+    return "Космический штиль. Системы на проверке."
 
-# Далее идет ваш остальной код (send_to_telegram, run_pipeline и т.д.)
-# ...
 def send_to_telegram(text, image_url):
-    """Отправляет красивый пост с картинкой в ваш Телеграм-канал"""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         print("Ключи Telegram не настроены.")
         return
-        
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "photo": image_url,
-        "caption": text,
-        "parse_mode": "HTML"
-    }
-    
-    try:
-        res = requests.post(url, json=payload, timeout=10)
-        if res.status_code != 200:
-            print(f"Ошибка TG API: {res.text}")
-        else:
-            print("Пост успешно отправлен в Telegram!")
-    except Exception as e:
-        print(f"Ошибка отправки в TG: {e}")
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "photo": image_url, "caption": text, "parse_mode": "HTML"}
+    requests.post(url, json=payload, timeout=10)
+
+def run_pipeline():
+    # Джиттер (0-7 минут)
+    wait_time = random.randint(0, 420)
+    print(f"Ожидание {wait_time} секунд...")
+    time.sleep(wait_time)
 
 def run_pipeline():
     noaa = NOAAClient()
@@ -120,24 +106,30 @@ def run_pipeline():
         print("На Солнце всё спокойно. Плановое время не подошло. Монитор засыпает.")
         return
 
+    # ... (код выше: сбор данных NOAA, Kp-индекс, расчет давления и т.д.)
+
     # 4. Выбираем спектр и planetary-метаданные
+    # Вот сюда вставляем текущее время и день недели
     current_weekday = datetime.datetime.utcnow().weekday()
     sdo_matrix = get_sdo_matrix()
     
     if is_event_trigger and override_spectrum:
         wave_num = override_spectrum
-        meta_source = next((item for item in sdo_matrix.values() if item["spectrum_id"] == wave_num), sdo_matrix[current_weekday])
+        # Используем .get() для безопасности, если ключ не найден
+        meta_source = next((item for item in sdo_matrix.values() if item["spectrum_id"] == wave_num), sdo_matrix.get(current_weekday))
         planet_gov = f"{meta_source['planet']} (КРИТИЧЕСКИЙ ПЕРЕХВАТ)"
         focus_text = f"🚨 ЭКСТРЕННЫЙ СНИМОК: {meta_source['focus']}"
         color_text = meta_source["color"]
     else:
-        today_meta = sdo_matrix[current_weekday]
+        today_meta = sdo_matrix.get(current_weekday, sdo_matrix[0]) # Защита, если индекс вне диапазона
         wave_num = today_meta["spectrum_id"]
         planet_gov = today_meta["planet"]
         focus_text = today_meta["focus"]
         color_text = today_meta["color"]
         
     sun_image = f"https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_{wave_num}.jpg"
+    
+    # ... (дальше идет ваш код с созданием prompt и отправкой)
     
     # 5. Собираем ТЕКСТ-ИНСТРУКЦИЮ для Gemini
     spots_info = ""
