@@ -35,7 +35,7 @@ class NOAAClient:
     def get_kp_index(self):
     """Забирает последний актуальный Kp-индекс (исключая нулевые выбросы)"""
     url = f"{self.base_url}/json/planetary_k_index_1m.json"
-    try:
+        try:
         response = requests.get(url, headers=self.headers, timeout=10)
         data = response.json()
         
