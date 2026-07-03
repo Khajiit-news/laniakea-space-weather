@@ -38,19 +38,18 @@ class NOAAClient:
         try:
             response = requests.get(url, headers=self.headers, timeout=10)
             data = response.json()
-        
-        # Идем с конца списка к началу, чтобы найти первое не нулевое значение
-        for entry in reversed(data):
-            val = float(entry.get("estimated_kp", 0))
-            if val > 0:
-                return val
-        
-        # Если все нули, возвращаем последнее значение из списка как есть
-        return float(data[-1].get("estimated_kp", 0))
-        
-    except Exception as e:
-        print(f"Ошибка получения Kp-индекса: {e}")
-        return None
+            
+            # Вся эта часть должна быть внутри try (сдвинута вправо)
+            for entry in reversed(data):
+                val = float(entry.get("estimated_kp", 0))
+                if val > 0:
+                    return val
+            
+            return float(data[-1].get("estimated_kp", 0))
+            
+        except Exception as e:  # <-- СДВИНЬТЕ ЭТУ СТРОКУ ВПРАВО
+            print(f"Ошибка получения Kp-индекса: {e}")
+            return None         # <-- И ЭТИ СТРОКИ ТОЖЕ
 
 def get_swx_report(self):
         """Скачивает свежий текстовый обзор NOAA"""
