@@ -6,7 +6,7 @@ class NOAAClient:
         self.headers = {"User-Agent": "Laniakea-Space-Weather-Bot/2.0"}
 
     def get_solar_wind_and_mag(self):
-        """Сбор данных с приоритетом на SOLAR-1 с защитой от пустых значений"""
+        """Сбор данных с поиском первой валидной строки с конца файла"""
         wind_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
         mag_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
         
@@ -14,43 +14,35 @@ class NOAAClient:
             wind_response = requests.get(wind_url, headers=self.headers, timeout=15).json()
             mag_response = requests.get(mag_url, headers=self.headers, timeout=15).json()
             
-            # Фильтруем данные, чтобы оставить только SOLAR-1
+            # Фильтруем данные SOLAR1
             solar1_wind = [d for d in wind_response if d.get("source") == "SOLAR1"]
             solar1_mag = [d for d in mag_response if d.get("source") == "SOLAR1"]
             
-            # Ищем первые валидные данные параметров ветра (с конца)
-            valid_speed = 0.0
-            valid_density = 0.0
-            
+            # Поиск данных ветра (скорость и плотность)
+            speed, density = 0.0, 0.0
             for entry in reversed(solar1_wind):
-                speed = entry.get("speed")
-                density = entry.get("density")
-                
-                # Отсекаем None и заглушки. Скорость и плотность должны быть > 0
-                if speed is not None and density is not None:
-                    if float(speed) > 0 and float(density) > 0:
-                        valid_speed = float(speed)
-                        valid_density = float(density)
-                        break
+                # Проверяем, что значения не пустые и не являются ошибкой (-9999)
+                s = entry.get("speed")
+                d = entry.get("density")
+                if s is not None and d is not None and float(s) > 0 and float(d) > 0:
+                    speed, density = float(s), float(d)
+                    break
             
-            # Ищем первые валидные данные магнитного поля (с конца)
-            valid_bz = 0.0
-            
+            # Поиск Bz
+            bz = 0.0
             for entry in reversed(solar1_mag):
-                bz = entry.get("bz")
-                
-                # Отсекаем None и системные заглушки. bz МОЖЕТ быть отрицательным!
-                if bz is not None and float(bz) != -9999:
-                    valid_bz = float(bz)
+                b = entry.get("bz")
+                # Bz может быть отрицательным, поэтому проверяем только на None и -9999
+                if b is not None and float(b) != -9999:
+                    bz = float(b)
                     break
             
             return {
-                "source": "SOLAR-1", # Добавляем источник для отчета
-                "speed": valid_speed,
-                "density": valid_density,
-                "bz": valid_bz
+                "source": "SOLAR-1",
+                "speed": speed,
+                "density": density,
+                "bz": bz
             }
-            
         except Exception as e:
             print(f"Ошибка при чтении данных SOLAR-1: {e}")
             return None
