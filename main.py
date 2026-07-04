@@ -15,17 +15,43 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 client = genai.Client()
 
 def ask_gemini(prompt_text):
-    """Генерация с прыжком между моделями и защитой от 503"""
-    models = ['gemini-2.5-flash', 'gemini-1.5-flash']
+    """Генерация с прыжком между моделями, повторными попытками и защитой от 503"""
+    
+    # Расширенный список моделей: от самых умных/новых к самым безотказным
+    models = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',   # Добавлена стабильная 2.0 на случай отсутствия 2.5
+        'gemini-1.5-pro',     # Pro версия имеет другие серверные лимиты
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-8b' # Очень быстрая и легкая модель, редко бывает перегружена
+    ]
+    
+    max_retries_for_503 = 2 # Сколько раз стучаться в перегруженную модель перед сменой
+    
     for model in models:
-        try:
-            print(f"Попытка через {model}...")
-            response = client.models.generate_content(model=model, contents=prompt_text)
-            return response.text
-        except Exception as e:
-            print(f"Ошибка {model}: {e}")
-            time.sleep(2)
-    return "Космический штиль. Системы на проверке."
+        for attempt in range(max_retries_for_503):
+            try:
+                print(f"Попытка через {model} (попытка {attempt + 1})...")
+                response = client.models.generate_content(model=model, contents=prompt_text)
+                return response.text
+            
+            except Exception as e:
+                error_msg = str(e)
+                print(f"Ошибка {model}: {error_msg}")
+                
+                # Если сервер перегружен (503), делаем паузу и пробуем снова
+                if "503" in error_msg or "UNAVAILABLE" in error_msg:
+                    wait_time = 5 * (attempt + 1) # Ждем 5 сек, потом 10 сек...
+                    print(f"Модель {model} перегружена. Ждем {wait_time} сек...")
+                    time.sleep(wait_time)
+                    continue # Идем на следующий круг attempt
+                    
+                # Если модель не найдена (404) или другая ошибка - не ждем, меняем модель
+                else:
+                    print(f"Модель {model} недоступна. Переключаемся на следующую...")
+                    break # Выходим из цикла попыток, идем к следующей модели в списке
+                    
+    return "Космический штиль. Системы ИИ временно недоступны из-за солнечных помех. Ждите обновлений."
 
 def send_to_telegram(text, image_url):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
