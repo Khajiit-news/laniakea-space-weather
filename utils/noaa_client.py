@@ -6,7 +6,7 @@ class NOAAClient:
         self.headers = {"User-Agent": "Laniakea-Space-Weather-Bot/2.0"}
 
     def get_solar_wind_and_mag(self):
-        """Сбор данных с поиском первой валидной строки с конца файла"""
+        """Сбор данных с принудительной фильтрацией нулей"""
         wind_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
         mag_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
         
@@ -14,26 +14,24 @@ class NOAAClient:
             wind_response = requests.get(wind_url, headers=self.headers, timeout=15).json()
             mag_response = requests.get(mag_url, headers=self.headers, timeout=15).json()
             
-            # Фильтруем данные SOLAR1
+            # Берем только SOLAR1
             solar1_wind = [d for d in wind_response if d.get("source") == "SOLAR1"]
             solar1_mag = [d for d in mag_response if d.get("source") == "SOLAR1"]
             
-            # Поиск данных ветра (скорость и плотность)
-            speed, density = 0.0, 0.0
+            speed, density, bz = 0.0, 0.0, 0.0
+            
+            # Ищем ВЕТЕР (скорость > 200, чтобы отсечь мусор)
             for entry in reversed(solar1_wind):
-                # Проверяем, что значения не пустые и не являются ошибкой (-9999)
-                s = entry.get("speed")
-                d = entry.get("density")
-                if s is not None and d is not None and float(s) > 0 and float(d) > 0:
-                    speed, density = float(s), float(d)
+                s = float(entry.get("speed", 0))
+                d = float(entry.get("density", 0))
+                if s > 200 and d > 0: # Реалистичные данные ветра
+                    speed, density = s, d
                     break
             
-            # Поиск Bz
-            bz = 0.0
+            # Ищем МАГНИТНОЕ ПОЛЕ (Bz не может быть 0, если спутник работает)
             for entry in reversed(solar1_mag):
                 b = entry.get("bz")
-                # Bz может быть отрицательным, поэтому проверяем только на None и -9999
-                if b is not None and float(b) != -9999:
+                if b is not None and float(b) != 0 and float(b) != -9999:
                     bz = float(b)
                     break
             
@@ -44,7 +42,7 @@ class NOAAClient:
                 "bz": bz
             }
         except Exception as e:
-            print(f"Ошибка при чтении данных SOLAR-1: {e}")
+            print(f"Ошибка получения данных: {e}")
             return None
 
     def get_kp_index(self):
