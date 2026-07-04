@@ -8,44 +8,42 @@ class NOAAClient:
     import json
 
 def get_solar_wind_and_mag(self):
-    """Чтение локальных файлов ACE"""
-    wind_path = "https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json" # Замените на ваш путь
-    mag_path = "https://services.swpc.noaa.gov/json/ace/mag/ace_mag_1h.json"   # Замените на ваш путь
-    
-    try:
-        with open(wind_path, 'r') as f:
-            wind_data = json.load(f)
-        with open(mag_path, 'r') as f:
-            mag_data = json.load(f)
+        """Сбор данных с серверов ACE"""
+        # Если это URL, используем requests
+        wind_url = "https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json"
+        mag_url = "https://services.swpc.noaa.gov/json/ace/mag/ace_mag_1h.json"
+        
+        try:
+            # Загружаем данные по ссылкам
+            wind_response = requests.get(wind_url, headers=self.headers, timeout=15).json()
+            mag_data = requests.get(mag_url, headers=self.headers, timeout=15).json()
             
-        speed, density, bz = 0.0, 0.0, 0.0
-        
-        # Поиск по ветру
-        for entry in reversed(wind_data):
-            # Проверяем возможные варианты ключей, если структура отличается
-            s = float(entry.get("speed") or entry.get("plasma_speed") or 0)
-            d = float(entry.get("density") or 0)
-            if s > 200 and d > 0:
-                speed, density = s, d
-                break
-        
-        # Поиск по магнитному полю
-        for entry in reversed(mag_data):
-            # Проверяем bz, bz_gsm или аналогичные ключи
-            b = entry.get("bz") or entry.get("bz_gsm")
-            if b is not None and float(b) not in [0, -9999.9, -9999]:
-                bz = float(b)
-                break
-        
-        return {
-            "source": "ACE",
-            "speed": speed,
-            "density": density,
-            "bz": bz
-        }
-    except Exception as e:
-        print(f"Ошибка обработки файлов ACE: {e}")
-        return None
+            speed, density, bz = 0.0, 0.0, 0.0
+            
+            # Поиск по ветру
+            for entry in reversed(wind_response):
+                s = float(entry.get("speed") or entry.get("plasma_speed") or 0)
+                d = float(entry.get("density") or 0)
+                if s > 200 and d > 0:
+                    speed, density = s, d
+                    break
+            
+            # Поиск по магнитному полю
+            for entry in reversed(mag_data):
+                b = entry.get("bz") or entry.get("bz_gsm")
+                if b is not None and float(b) not in [0, -9999.9, -9999]:
+                    bz = float(b)
+                    break
+            
+            return {
+                "source": "ACE",
+                "speed": speed,
+                "density": density,
+                "bz": bz
+            }
+        except Exception as e:
+            print(f"Ошибка получения данных ACE: {e}")
+            return None
         
     def get_kp_index(self):
         """Забирает последний актуальный Kp-индекс (исключая нулевые выбросы)"""
