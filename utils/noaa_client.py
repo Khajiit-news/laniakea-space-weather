@@ -5,46 +5,48 @@ class NOAAClient:
         self.base_url = "https://services.swpc.noaa.gov"
         self.headers = {"User-Agent": "Laniakea-Space-Weather-Bot/2.0"}
 
-    def get_solar_wind_and_mag(self):
-        """Сбор данных с принудительной фильтрацией нулей"""
-        wind_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
-        mag_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
-        
-        try:
-            wind_response = requests.get(wind_url, headers=self.headers, timeout=15).json()
-            mag_response = requests.get(mag_url, headers=self.headers, timeout=15).json()
-            
-            # Берем только SOLAR1
-            solar1_wind = [d for d in wind_response if d.get("source") == "SOLAR1"]
-            solar1_mag = [d for d in mag_response if d.get("source") == "SOLAR1"]
-            
-            speed, density, bz = 0.0, 0.0, 0.0
-            
-            # Ищем ВЕТЕР (скорость > 200, чтобы отсечь мусор)
-            for entry in reversed(solar1_wind):
-                s = float(entry.get("speed", 0))
-                d = float(entry.get("density", 0))
-                if s > 200 and d > 0: # Реалистичные данные ветра
-                    speed, density = s, d
-                    break
-            
-            # Ищем МАГНИТНОЕ ПОЛЕ (Bz не может быть 0, если спутник работает)
-            for entry in reversed(solar1_mag):
-                b = entry.get("bz")
-                if b is not None and float(b) != 0 and float(b) != -9999:
-                    bz = float(b)
-                    break
-            
-            return {
-                "source": "SOLAR-1",
-                "speed": speed,
-                "density": density,
-                "bz": bz
-            }
-        except Exception as e:
-            print(f"Ошибка получения данных: {e}")
-            return None
+    import json
 
+def get_solar_wind_and_mag(self):
+    """Чтение локальных файлов ACE"""
+    wind_path = "https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json" # Замените на ваш путь
+    mag_path = "https://services.swpc.noaa.gov/json/ace/mag/ace_mag_1h.json"   # Замените на ваш путь
+    
+    try:
+        with open(wind_path, 'r') as f:
+            wind_data = json.load(f)
+        with open(mag_path, 'r') as f:
+            mag_data = json.load(f)
+            
+        speed, density, bz = 0.0, 0.0, 0.0
+        
+        # Поиск по ветру
+        for entry in reversed(wind_data):
+            # Проверяем возможные варианты ключей, если структура отличается
+            s = float(entry.get("speed") or entry.get("plasma_speed") or 0)
+            d = float(entry.get("density") or 0)
+            if s > 200 and d > 0:
+                speed, density = s, d
+                break
+        
+        # Поиск по магнитному полю
+        for entry in reversed(mag_data):
+            # Проверяем bz, bz_gsm или аналогичные ключи
+            b = entry.get("bz") or entry.get("bz_gsm")
+            if b is not None and float(b) not in [0, -9999.9, -9999]:
+                bz = float(b)
+                break
+        
+        return {
+            "source": "ACE",
+            "speed": speed,
+            "density": density,
+            "bz": bz
+        }
+    except Exception as e:
+        print(f"Ошибка обработки файлов ACE: {e}")
+        return None
+        
     def get_kp_index(self):
         """Забирает последний актуальный Kp-индекс (исключая нулевые выбросы)"""
         url = f"{self.base_url}/json/planetary_k_index_1m.json"
