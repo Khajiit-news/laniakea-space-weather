@@ -62,12 +62,6 @@ def send_to_telegram(text, image_url):
     requests.post(url, json=payload, timeout=10)
 
 def run_pipeline():
-    # Джиттер (0-7 минут)
-    wait_time = random.randint(0, 420)
-    print(f"Ожидание {wait_time} секунд...")
-    time.sleep(wait_time)
-
-def run_pipeline():
     noaa = NOAAClient()
     
 # 1. Собираем физику и научные обзоры
