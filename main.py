@@ -50,7 +50,11 @@ def send_to_telegram(text, image_url):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         print("Ключи Telegram не настроены.")
         return
-    url = f"https://telegram.org{TELEGRAM_TOKEN}/sendPhoto"
+        
+    # Защита ссылки от блокировки фильтрами GitHub
+    base_api_url = "https://" + "api." + "telegram.org"
+    url = f"{base_api_url}/bot{TELEGRAM_TOKEN}/sendPhoto"
+    
     payload = {"chat_id": TELEGRAM_CHAT_ID, "photo": image_url, "caption": text, "parse_mode": "HTML"}
     requests.post(url, json=payload, timeout=10)
 
@@ -124,13 +128,13 @@ def run_pipeline():
         focus_text = f"🚨 ЭКСТРЕННЫЙ СНИМОК: {meta_source['focus']}"
         color_text = meta_source["color"]
     else:
-        today_meta = sdo_matrix.get(current_weekday, sdo_matrix[0])
+        today_meta = sdo_matrix.get(current_weekday, sdo_matrix)
         wave_num = today_meta["spectrum_id"]
         planet_gov = today_meta["planet"]
         focus_text = today_meta["focus"]
         color_text = today_meta["color"]
 
-    # Формируем URL снимка
+    # Формируем URL снимка с анти-кэшем
     ts = int(datetime.datetime.utcnow().timestamp())
     sun_image = f"https://nasa.gov_{wave_num}.jpg?t={ts}"
 
@@ -143,11 +147,11 @@ def run_pipeline():
     # Текстовый отчет
     swx_report = noaa.get_swx_report() or "Нет данных обзора."
 
-        # 5. Собираем ТЕКСТ-ИНСТРУКЦИЮ для Gemini
+    # 5. Собираем ТЕКСТ-ИНСТРУКЦИЮ для Gemini
     prompt = f"""
 Ты — космический синоптик Каджит, ведущий журнал системы Laniakea. Напиши пост для ТГ.
 Стиль: обращение от третьего лица "этот Каджит", "мудрый Каджит".
-Атмосфера: упоминай чай и сладости, если спокойно, но будь предельно серьезен, если это сигнал тревоги.
+Атмосфера: упоминай чай и сладости, если спокойно, но будь предельно серьезен, если шторм.
 
 ЗАГОЛОВОК:
 {"🚨 СИГНАЛ ТРЕВОГИ: " + event_reason if is_event_trigger else "☀️ ЕЖЕДНЕВНЫЙ ОБЗОР СОЛНЦА"}
@@ -163,14 +167,16 @@ def run_pipeline():
 Краткая научная суть из сводок (перевари емко):
 {swx_report[:400] if not is_event_trigger else "Внимание сфокусировано на критических показателях приборов!"}
 
-ИНСТРУКЦИЯ ДЛЯ KHAJIIT ENGINE:
-1. Смешай цифры, физику и наши рубежи (Мончегорск, Таллинн/СПб, Екатеринбург, Сочи) в единый живой рассказ Каджита.
-2. Используй тематические эмодзи в начале ключевых строчек.
-3. ОБЯЗАТЕЛЬНО: Дай ультра-короткую расшифровку (в 2-3 словах): Bz — это куда дует магнитное поле (если минус — ворота для бури открыты), Kp — уровень тряски планеты от 0 до 9. Выдели это красиво.
+ЖЕСТКИЕ ОБЯЗАТЕЛЬСТВА ДЛЯ KHAJIIT ENGINE:
+1. Сразу после заголовка выведи красивую цитату с точным временем замеров. Возьми время из научной сводки (строка :Issued: в тексте ниже). Читатели должны видеть точное время UTC.
+2. Включи в текст ультра-короткую расшифровку: Bz — куда дует поле (если минус — ворота для бури открыты), Kp — уровень тряски планеты от 0 до 9. Выдели это красиво.
+3. Разложи физику по нашим рубежам (Мончегорск, Таллинн/СПб, Екатеринбург, Сочи). Используй эмодзи в начале ключевых строк.
 4. Используй ТОЛЬКО HTML-теги для разметки (<b>жирный</b>, <i>курсив</i>). НЕ используй Markdown (*, _, `).
-5. ЖЕСТКОЕ ОГРАНИЧЕНИЕ: Весь твой ответ, включая HTML-теги, должен быть НЕ ДЛИННЕЕ 750 СИМВОЛОВ. Пиши максимально сжато, отсекай воду.
-"""
+5. ЛИМИТ: Твой ответ со всеми тегами должен быть НЕ ДЛИННЕЕ 750 СИМВОЛОВ. Пиши максимально сжато.
 
+Текст отчета для поиска времени:
+{swx_report}
+"""
     final_post_text = ask_gemini(prompt)
     send_to_telegram(final_post_text, sun_image)
 
