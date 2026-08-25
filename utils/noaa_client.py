@@ -4,15 +4,15 @@ import json
 class NOAAClient:
     def __init__(self):
         # В кавычках ниже должна быть ссылка https://noaa.gov
-        self.base_url = "ССЫЛКА_НА_БАЗУ_NOAA"
+        self.base_url = "https://services.swpc.noaa.gov"
         self.headers = {"User-Agent": "Laniakea-Space-Weather-Bot/2.0"}
 
     def get_solar_wind_and_mag(self):
         """Сбор данных с серверов ACE"""
         # Ссылка на swepam json
-        wind_url = "ССЫЛКА_НА_WIND_JSON"
+        wind_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
         # Ссылка на mag json
-        mag_url = "ССЫЛКА_НА_MAG_JSON"
+        mag_url = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
         
         try:
             wind_response = requests.get(wind_url, headers=self.headers, timeout=15).json()
