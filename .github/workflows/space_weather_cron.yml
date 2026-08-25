@@ -1,8 +1,10 @@
 name: Laniakea Space Weather Monitor
+
 on:
   schedule:
-    - cron: '0 9 * * *' # Обновление в 9:00 UTC (12:00 по Таллину)
-  workflow_dispatch:
+    - cron: '0 9 * * *'       # Дневной обзор Солнца: 09:00 UTC (12:00 по Таллину)
+    - cron: '0 1 * * *'       # Ночные свитки NOAA с запасом: 01:00 UTC (04:00 по Таллину)
+  workflow_dispatch:          # Кнопка для ручного запуска в интерфейсе
 
 jobs:
   run-bot:
@@ -10,16 +12,26 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Install dependencies
         run: |
           pip install requests google-genai
+
       - name: Run Laniakea Engine
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python main.py
+        run: |
+          # Если запуск произошел в районе 01:00 UTC, запускаем ночной поток
+          if [ "$(date -u +%H)" = "01" ] || [ "$(date -u +%H)" = "02" ]; then
+            python evening_main.py
+          else
+            # В остальное время (в 09:00 UTC) запускаем стандартный дневной обзор
+            python main.py
+          fi
