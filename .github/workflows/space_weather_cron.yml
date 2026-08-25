@@ -28,10 +28,4 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          # Если запуск произошел в районе 01:00 UTC, запускаем ночной поток
-          if [ "$(date -u +%H)" = "01" ] || [ "$(date -u +%H)" = "02" ]; then
-            python evening_main.py
-          else
-            # В остальное время (в 09:00 UTC) запускаем стандартный дневной обзор
-            python main.py
-          fi
+          run: python evening_main.py
