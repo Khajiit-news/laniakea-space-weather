@@ -1,26 +1,25 @@
 import requests
+import json
 
 class NOAAClient:
     def __init__(self):
-        self.base_url = "https://services.swpc.noaa.gov"
+        # В кавычках ниже должна быть ссылка https://noaa.gov
+        self.base_url = "ССЫЛКА_НА_БАЗУ_NOAA"
         self.headers = {"User-Agent": "Laniakea-Space-Weather-Bot/2.0"}
 
-    import json
-
-def get_solar_wind_and_mag(self):
+    def get_solar_wind_and_mag(self):
         """Сбор данных с серверов ACE"""
-        # Если это URL, используем requests
-        wind_url = "https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json"
-        mag_url = "https://services.swpc.noaa.gov/json/ace/mag/ace_mag_1h.json"
+        # Ссылка на swepam json
+        wind_url = "ССЫЛКА_НА_WIND_JSON"
+        # Ссылка на mag json
+        mag_url = "ССЫЛКА_НА_MAG_JSON"
         
         try:
-            # Загружаем данные по ссылкам
             wind_response = requests.get(wind_url, headers=self.headers, timeout=15).json()
             mag_data = requests.get(mag_url, headers=self.headers, timeout=15).json()
             
             speed, density, bz = 0.0, 0.0, 0.0
             
-            # Поиск по ветру
             for entry in reversed(wind_response):
                 s = float(entry.get("speed") or entry.get("plasma_speed") or 0)
                 d = float(entry.get("density") or 0)
@@ -28,7 +27,6 @@ def get_solar_wind_and_mag(self):
                     speed, density = s, d
                     break
             
-            # Поиск по магнитному полю
             for entry in reversed(mag_data):
                 b = entry.get("bz") or entry.get("bz_gsm")
                 if b is not None and float(b) not in [0, -9999.9, -9999]:
@@ -65,7 +63,8 @@ def get_solar_wind_and_mag(self):
 
     def get_swx_report(self):
         """Скачивает свежий текстовый обзор NOAA"""
-        url = "https://services.swpc.noaa.gov/text/discussion.txt"
+        # Ссылка на discussion.txt
+        url = "ССЫЛКА_НА_DISCUSSION_TXT"
         try:
             response = requests.get(url, headers=self.headers, timeout=10)
             return response.text
