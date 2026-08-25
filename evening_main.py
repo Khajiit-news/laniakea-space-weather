@@ -86,7 +86,6 @@ def run_evening_pipeline():
 {swx_report}
 """
 
-
     # 3. Отдаем ИИ и отправляем результат в чат
     final_post_text = ask_gemini(prompt)
     send_text_to_telegram(final_post_text)
