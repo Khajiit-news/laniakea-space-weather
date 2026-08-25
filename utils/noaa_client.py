@@ -64,7 +64,7 @@ class NOAAClient:
     def get_swx_report(self):
         """Скачивает свежий текстовый обзор NOAA"""
         # Ссылка на discussion.txt
-        url = "ССЫЛКА_НА_DISCUSSION_TXT"
+        url = "https://services.swpc.noaa.gov/text/discussion.txt"
         try:
             response = requests.get(url, headers=self.headers, timeout=10)
             return response.text
