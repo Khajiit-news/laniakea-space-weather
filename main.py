@@ -46,21 +46,13 @@ def ask_gemini(prompt_text):
     return "Космический штиль. Системы ИИ временно недоступны из-за солнечных помех. Ждите обновлений."
 
 def send_to_telegram(text, image_url):
+    """Твоя оригинальная чистая функция отправки в Telegram"""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         print("Ключи Telegram не настроены.")
         return
-        
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
+    url = f"https://telegram.org{TELEGRAM_TOKEN}/sendPhoto"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "photo": image_url, "caption": text, "parse_mode": "HTML"}
     requests.post(url, json=payload, timeout=10)
-    
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        print(f"Ответ Telegram: {response.status_code}")
-        if response.status_code != 200:
-            print(f"Текст ошибки от Telegram: {response.text}")
-    except Exception as e:
-        print(f"Сбой сети при отправке в Telegram: {e}")
 
 def run_pipeline():
     noaa = NOAAClient()
@@ -138,11 +130,11 @@ def run_pipeline():
         focus_text = today_meta["focus"]
         color_text = today_meta["color"]
 
-    # Исправленный, настоящий URL снимка Солнца с серверов НАСА
+    # Твой эталонный URL снимка Солнца с серверов НАСА
     ts = int(datetime.datetime.utcnow().timestamp())
     sun_image = f"https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_{wave_num}.jpg?t={ts}"
 
-    # Собираем информацию о пятнах
+    # Собираем информацию о пятнахsa.gov_{
     spots_info = ""
     if all_spots:
         for s in all_spots[:3]:
