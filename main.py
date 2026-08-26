@@ -50,16 +50,9 @@ def send_to_telegram(text, image_url):
         print("Ключи Telegram не настроены.")
         return
         
-    # Собираем адрес по частям, чтобы обойти автоматическую блокировку GitHub
-    base_api_url = "https://" + "api." + "telegram.org"
-    url = f"{base_api_url}/bot{TELEGRAM_TOKEN}/sendPhoto"
-    
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID, 
-        "photo": image_url, 
-        "caption": text, 
-        "parse_mode": "HTML"
-    }
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "photo": image_url, "caption": text, "parse_mode": "HTML"}
+    requests.post(url, json=payload, timeout=10)
     
     try:
         response = requests.post(url, json=payload, timeout=10)
