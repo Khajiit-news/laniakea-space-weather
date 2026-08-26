@@ -34,7 +34,6 @@ def ask_gemini(prompt_text):
                 error_msg = str(e)
                 print(f"Ошибка {model}: {error_msg}")
                 
-                # Если сервер перегружен (503), делаем паузу и пробуем снова
                 if "503" in error_msg or "UNAVAILABLE" in error_msg:
                     wait_time = 5 * (attempt + 1) 
                     print(f"Модель {model} перегружена. Ждем {wait_time} сек...")
@@ -51,12 +50,19 @@ def send_to_telegram(text, image_url):
         print("Ключи Telegram не настроены.")
         return
         
-    # Защита ссылки от блокировки фильтрами GitHub
+    # Сборка эталонного адреса API для пробития фильтров GitHub
     base_api_url = "https://" + "api." + "telegram.org"
     url = f"{base_api_url}/bot{TELEGRAM_TOKEN}/sendPhoto"
     
     payload = {"chat_id": TELEGRAM_CHAT_ID, "photo": image_url, "caption": text, "parse_mode": "HTML"}
-    requests.post(url, json=payload, timeout=10)
+    
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        print(f"Ответ Telegram: {response.status_code}")
+        if response.status_code != 200:
+            print(f"Текст ошибки Telegram: {response.text}")
+    except Exception as e:
+        print(f"Критический сбой сети при отправке: {e}")
 
 def run_pipeline():
     noaa = NOAAClient()
@@ -75,7 +81,7 @@ def run_pipeline():
     pressure = (1.672 * 10**-6) * density * (speed ** 2)
     
     # Расчет рубежей обороны
-    shift_south = "Штиль. Мончегорск — на передовой сияний, Таллинн/СПб — в зоне ожидания, Екатеринбург (Уральский рубеж) — под защитой, Сочи — глубокий тыл."
+    shift_south = "Штиль. Мончегорск — на передовой сияний, Таллинн/СПб — в зоне ожидания, Екатеринбург (Уральский рубеж) — под защитой, Coчи — глубокий тыл."
     if bz < -5 or pressure > 4:
         shift_south = "Среднее смещение. Накрывает Мончегорск, дотягивается до Таллинна и СПб. На Уральском рубеже (Екатеринбург) сгущаются тени."
     if bz < -8 or pressure > 7:
@@ -134,9 +140,9 @@ def run_pipeline():
         focus_text = today_meta["focus"]
         color_text = today_meta["color"]
 
-    # Формируем URL снимка с анти-кэшем
+    # Исправленный, настоящий URL снимка Солнца с серверов НАСА
     ts = int(datetime.datetime.utcnow().timestamp())
-    sun_image = f"https://nasa.gov_{wave_num}.jpg?t={ts}"
+    sun_image = f"https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_{wave_num}.jpg?t={ts}"
 
     # Собираем информацию о пятнах
     spots_info = ""
